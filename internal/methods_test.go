@@ -22,14 +22,15 @@ func TestRedirect(t *testing.T) {
 	e := echo.New()
 
 	db, mock, err := sqlmock.New()
+	repo := NewPostgresURLRepository(db)
 	if err != nil {
 		t.Fatalf("Error initializing mock db: %v", err)
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT original FROM urls WHERE id = $1`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT original, clicks FROM urls WHERE id = $1`)).
 		WithArgs(MockId).
-		WillReturnRows(sqlmock.NewRows([]string{"original"}).AddRow(mockUrl))
+		WillReturnRows(sqlmock.NewRows([]string{"original", "clicks"}).AddRow(mockUrl, 15))
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -40,7 +41,8 @@ func TestRedirect(t *testing.T) {
 	c.SetParamValues(mockShort)
 	c.Set("db", db)
 
-	err = Redirect(c)
+	handler := Redirect(repo)
+	err = handler(c)
 	if err != nil {
 		t.Fatalf("Error during Redirect handler execution: %v", err)
 	}
@@ -53,6 +55,7 @@ func TestShorten(t *testing.T) {
 	e := echo.New()
 
 	db, mock, err := sqlmock.New()
+	repo := NewPostgresURLRepository(db)
 	if err != nil {
 		t.Fatalf("Error initializing mock db: %v", err)
 	}
@@ -62,7 +65,7 @@ func TestShorten(t *testing.T) {
 		WithArgs(mockUrl).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(MockId))
 
-	e.GET("/shorten", Shorten)
+	e.GET("/shorten", Shorten(repo))
 	reqBody := `{"original": "https://example.com"}`
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewBufferString(reqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -71,7 +74,8 @@ func TestShorten(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("db", db)
 
-	err = Shorten(c)
+	handler := Shorten(repo)
+	err = handler(c)
 	if err != nil {
 		t.Fatalf("Error during Shorten handler execution: %v", err)
 	}
@@ -84,6 +88,7 @@ func TestStats(t *testing.T) {
 	e := echo.New()
 
 	db, mock, err := sqlmock.New()
+	repo := NewPostgresURLRepository(db)
 	if err != nil {
 		t.Fatalf("Error initializing mock db: %v", err)
 	}
@@ -102,7 +107,8 @@ func TestStats(t *testing.T) {
 	c.SetParamValues(mockShort)
 	c.Set("db", db)
 
-	err = Stats(c)
+	handler := Stats(repo)
+	err = handler(c)
 	if err != nil {
 		t.Fatalf("Error during Stats handler execution: %v", err)
 	}

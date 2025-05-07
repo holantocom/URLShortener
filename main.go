@@ -22,6 +22,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	dbRepo := internal.NewPostgresURLRepository(db)
 
 	db.SetMaxOpenConns(15)
 	db.SetMaxIdleConns(5)
@@ -31,16 +32,10 @@ func main() {
 	e.Use(middleware.Recover())
 	// can be replaced with e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(20))))
 	e.Use(internal.RateLimiter)
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			c.Set("db", db)
-			return next(c)
-		}
-	})
 
-	e.POST("/shorten", internal.Shorten)
-	e.GET("/:short", internal.Redirect)
-	e.GET("/stats/:short", internal.Stats)
+	e.POST("/shorten", internal.Shorten(dbRepo))
+	e.GET("/:short", internal.Redirect(dbRepo))
+	e.GET("/stats/:short", internal.Stats(dbRepo))
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
