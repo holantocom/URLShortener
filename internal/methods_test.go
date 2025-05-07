@@ -27,7 +27,6 @@ func TestRedirect(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Мокаем кэш
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT original FROM urls WHERE id = $1`)).
 		WithArgs(MockId).
 		WillReturnRows(sqlmock.NewRows([]string{"original"}).AddRow(mockUrl))
